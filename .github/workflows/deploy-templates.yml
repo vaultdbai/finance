@@ -1,0 +1,82 @@
+name: Upload Cloudformation templates & deploy for preview
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        type: string
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        type: string
+        
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/master' || github.sha }}
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+jobs:
+  Deploy:
+    name: Deploy Vaultdb Analytics and Datalake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Build distribtion
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp ./*.yaml ./dist/
+          cp ./*.html ./dist/
+          cp ./*.json ./dist/
+  
+      - uses: vitorsgomes/s3-rm-action@master
+        name: cleanup s3 folder finance
+        with:
+          args: --recursive
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          PATH_TO_DELETE: 'finance'
+
+      - uses: shallwefootball/s3-upload-action@master
+        name: Upload S3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.S3_ID }}
+          aws_secret_access_key: ${{ secrets.S3_KEY}}
+          aws_bucket: ${{ secrets.AWS_BUCKET }}
+          source_dir: 'dist'
+          destination_dir: 'finance'
+
+      - name: Configure AWS local region Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.S3_ID }}
+          aws-secret-access-key: ${{ secrets.S3_KEY }}
+          aws-region: ${{ inputs.aws_region }}
+          
+      - name: Login to Amazon ECR private
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push image to private Amazon ECR
+        id: push-private-image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: "vaultdb"
+          IMAGE_TAG: finance
+        run: |
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: Log out of Amazon ECR
+        if: always()
+        run: docker logout ${{ steps.login-ecr.outputs.registry }}
+        

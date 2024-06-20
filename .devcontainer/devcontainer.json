@@ -1,0 +1,33 @@
+{
+	"name": "VaultDB-Finance",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "finance",
+	"workspaceFolder": "/workspace",
+	// Use this environment variable if you need to bind mount your local source code into a new container.
+	"remoteEnv": {
+		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",		
+		"commitlog_directory":"/efs",
+		"application_name":"dev"
+	},
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/bin/bash"
+					}
+				},
+				"terminal.integrated.defaultProfile.linux": "bash",
+				"python.languageServer": "Pylance"
+			},
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": ["ms-python.python", "ms-vscode.live-server", "ms-toolsai.jupyter", "ms-python.black-formatter", "amazonwebservices.aws-toolkit-vscode"]			
+		}
+	},
+	
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	//"forwardPorts": [3000, 80, 8080, 9042],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "pip install -r requirements.txt"
+}
