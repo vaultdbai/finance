@@ -40,23 +40,30 @@ def sync_and_load(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table
     try:
         connection.sql("CREATE OR REPLACE TABLE temp_sql AS SELECT * FROM df")
         df_tmp_sql = connection.sql("SHOW temp_sql;").fetchdf()    
-        tbl_df: pd.DataFrame = connection.query(f"SHOW {table_name};").fetchdf()
+        tbl_df: pd.DataFrame = connection.query(f"select * from information_schema.tables where table_name='{table_name}';").fetchdf()        
         if tbl_df.empty:
             create_stmt = f"CREATE OR REPLACE TABLE {table_name}("
             for row in df_tmp_sql.itertuples(index=False):
-                create_stmt += f"{row.column_name} {row.column_type}, "
+                create_stmt += f"{row.column_name.lower().replace(' ', '_')} {row.column_type}, "
             create_stmt += f" PRIMARY KEY({",".join(primary_keys)}))"            
             connection.query(create_stmt)
-        else:        
+        else:
+            tbl_df: pd.DataFrame = connection.query(f"SHOW {table_name};").fetchdf()
             table_cols = tbl_df["column_name"].tolist() 
              
             for row in df_tmp_sql.itertuples(index=False):
-                if row.column_name not in table_cols:
-                    alter_stmt = f"ALTER TABLE {table_name} ADD COLUMN {row.column_name} {row.column_type};"
+                if row.column_name.lower().replace(' ', '_') not in table_cols:
+                    alter_stmt = f"ALTER TABLE {table_name} ADD COLUMN {row.column_name.lower().replace(' ', '_')} {row.column_type};"
                     connection.query(alter_stmt)
-        df_cols_stmt = ",".join(df.columns.tolist())
         
-        connection.query(f"INSERT INTO {table_name}({df_cols_stmt}) SELECT {df_cols_stmt} FROM df")
+        tbl_df: pd.DataFrame = connection.query(f"SHOW {table_name};").fetchdf()
+        table_col_list = tbl_df["column_name"].tolist()
+        table_cols = []
+        for col in df.columns.tolist():
+          if col.lower().replace(' ', '_') in table_col_list:
+            table_cols.append(col.lower().replace(' ', '_'))
+        
+        connection.query(f"INSERT INTO {table_name}({",".join(table_cols)}) SELECT * FROM df")
         
     finally:
         connection.sql("DROP TABLE temp_sql;")

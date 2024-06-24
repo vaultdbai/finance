@@ -1,55 +1,45 @@
-from finance.core import get_tickers as gt
+import requests_cache
+import yfinance as yf
 import pandas as pd
 import duckdb
+
+from vaultdb import sync_and_load
 
 # Set up the logger
 import logging
 
 logger = logging.getLogger()
 
-def extract(symbol:str) -> pd.DataFrame:
-    df = gt.get_tickers_dataframe()
-    logger.debug(df.head())
+
+def extract(symbol: str, period) -> pd.DataFrame:
+    session = requests_cache.CachedSession("yfinance.cache")
+    session.headers["User-agent"] = "my-program/1.0"
+    ticker = yf.Ticker(symbol.upper(), session=session)
+    hist = ticker.history(period=period)
+    return hist
+
+
+def transform_and_insert(
+    connection: duckdb.DuckDBPyConnection,
+    df: pd.DataFrame,
+    table_name: str,
+    symbol: str,
+) -> yf.Ticker:
+    df["symbol"] = symbol.upper()
+    df.reset_index(inplace=True)
+    sync_and_load(connection, df, table_name, ["symbol", "date"])
     return df
 
 
-def transform(tickers_df: pd.DataFrame) -> pd.DataFrame:
-    tickers_df["lastsale"] = pd.to_numeric(tickers_df["lastsale"].str.replace('$', ''))
-    tickers_df["netchange"] = pd.to_numeric(tickers_df["netchange"])
-    tickers_df["pctchange"] = pd.to_numeric(tickers_df["pctchange"].str.replace('%', ''))
-    tickers_df["marketCap"] = pd.to_numeric(tickers_df["marketCap"])
-    tickers_df["ipoyear"] = pd.to_numeric(tickers_df["ipoyear"])
-    tickers_df["volume"] = pd.to_numeric(tickers_df["volume"])
-    return tickers_df
+def load(
+    connection: duckdb.DuckDBPyConnection,
+    database_name: str,
+    symbol: str,
+    period: str = "1d",
+):
+    history = extract(symbol, period=period)
 
-
-def load(connection: duckdb.DuckDBPyConnection, database_name: str):
-    tickers_df = extract()
-    tickers_df = transform(tickers_df)
-    
-    """
-    # create the table "my_table" from the DataFrame "my_df"
-    # Note: duckdb.sql connects to the default in-memory database connection
-    connection.sql("CREATE OR REPLACE TABLE temp_ticket AS SELECT * FROM tickers_df")
-    df = connection.sql("SHOW temp_ticket;").fetchdf()
-    
-    create_stmt = "CREATE OR REPLACE TABLE ticker("
-    for row in df.itertuples(index=False):
-        create_stmt += f"{row.column_name} {row.column_type}, "
-    create_stmt += " PRIMARY KEY(exchange_name, symbol))"
-    connection.sql("DROP TABLE temp_ticket;")
-    """
-   
-    create_stmt = "CREATE OR REPLACE TABLE tickers(exchange VARCHAR, symbol VARCHAR, name VARCHAR, lastsale VARCHAR, netchange DOUBLE, pctchange DOUBLE, marketCap BIGINT, country VARCHAR, ipoyear INTEGER, volume BIGINT, sector VARCHAR, industry VARCHAR, url VARCHAR,  PRIMARY KEY(exchange, symbol))"
-    
-    logger.debug(create_stmt)   
-    
-    connection.sql(create_stmt)
-     
-    connection.sql("ALTER TABLE tickers PARTITION BY exchange_name;")
-        
-    # insert into the table "my_table" from the DataFrame "my_df"
-    connection.sql("INSERT INTO tickers(exchange, symbol, name, lastsale, netchange, pctchange, marketCap, country, ipoyear, volume, sector, industry, url) SELECT exchange, symbol, name, lastsale, netchange, pctchange, marketCap, country, ipoyear, volume, sector, industry, url FROM tickers_df")
+    transform_and_insert(connection, history, "quote", symbol)
 
     connection.execute(f"PUSH DATABASE {database_name};")
 
@@ -57,8 +47,14 @@ def load(connection: duckdb.DuckDBPyConnection, database_name: str):
 
 
 if __name__ == "__main__":
+    import os
     from vaultdb import download
-    url = "http://test-public-storage-440955376164.s3-website.us-east-1.amazonaws.com/catalogs/test.db"
-    downloaded = download(url, "/workspace/test.db") 
-    connection = duckdb.login.cognito("vaultdb","test123", downloaded, aws_region="us-east-1")
-    load(connection, "test")
+    from duckdb import login
+
+    database_name = "test"
+    filename = f"/workspace/{database_name}.db"
+    if not os.path.isfile(filename):
+        url = f"http://test-public-storage-440955376164.s3-website.us-east-1.amazonaws.com/catalogs/{database_name}.db"
+        filename = download(url, filename)
+    connection = login.cognito("vaultdb", "test123", filename, aws_region="us-east-1")
+    load(connection, database_name, "msft", None)

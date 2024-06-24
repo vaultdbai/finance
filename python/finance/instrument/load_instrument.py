@@ -86,10 +86,11 @@ def load(connection: duckdb.DuckDBPyConnection, symbol:str, database_name: str):
 if __name__ == "__main__":
     import os
     from vaultdb import download
+    from duckdb import login
     database_name = "test"
     filename = f"/workspace/{database_name}.db"
     if not os.path.isfile(filename):
         url = f"http://test-public-storage-440955376164.s3-website.us-east-1.amazonaws.com/catalogs/{database_name}.db"
-        downloaded = download(url, filename)    
-    connection = duckdb.login.cognito("vaultdb","test123", downloaded, aws_region="us-east-1")
+        filename = download(url, filename)    
+    connection = login.cognito("vaultdb","test123", filename, aws_region="us-east-1")
     load(connection, "msft", database_name)

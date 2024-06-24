@@ -30,7 +30,7 @@ Resources:
       PackageType: Image
       ImageConfig:
         Command: 
-          - tickers.lambda_handler
+          - finance_lambda.lambda_handler
       Architectures:
         - x86_64
       MemorySize: 256
@@ -72,7 +72,7 @@ Resources:
           Id: "UpdateKeysWeekly"
           Input: '{"RequestType":  "Refresh"}'
 
-  PermissionForEventsToInvokeMergeLambda:
+  PermissionForEventsToInvokeFinanceLambda:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref FinanceLoadTickerFunction
