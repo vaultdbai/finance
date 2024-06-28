@@ -1,2 +1,3 @@
 yfinance[nospam,repair]
+boto3
 #duckdb-engine

@@ -30,7 +30,7 @@ def transform_and_insert(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame
     return df
 
 
-def load(connection: duckdb.DuckDBPyConnection, database_name: str, symbol:str, option_quote_period:str="1d"):
+def load(connection: duckdb.DuckDBPyConnection, symbol:str):
     ticker = extract(symbol)
     # show actions (dividends, splits, capital gains)
     transform_and_insert(connection, ticker.actions, "actions", symbol, ['symbol', 'date'])
@@ -83,16 +83,22 @@ def load(connection: duckdb.DuckDBPyConnection, database_name: str, symbol:str, 
     # show ISIN code - *experimental*
     # ISIN = International Securities Identification Number
     #msft.isin
-    # get option chain for specific expiration
-    for exprity_date in ticker.options:
-        opt = ticker.option_chain(exprity_date)
-        load_option_chain(connection, database_name, opt.calls, exprity_date, "call", symbol, option_quote_period)
-        load_option_chain(connection, database_name, opt.puts, exprity_date, "put", symbol, option_quote_period)
 
+def load_news(connection: duckdb.DuckDBPyConnection, symbol:str, period:str):
+    ticker = extract(symbol)
     # show news
     transform_and_insert(connection, ticker.news, "news", symbol, ['symbol'])
 
-def load_option_chain(connection: duckdb.DuckDBPyConnection, database_name: str, options: pd.DataFrame, exprity_date:str, option_type:str, symbol:str, option_quote_period:str="1d"):
+def load_options_and_quotes(connection: duckdb.DuckDBPyConnection, symbol:str, period:str):
+    ticker = extract(symbol)
+    
+    # get option chain for specific expiration
+    for exprity_date in ticker.options:
+        opt = ticker.option_chain(exprity_date)
+        load_option_chain(connection, opt.calls, exprity_date, "call", symbol, period)
+        load_option_chain(connection, opt.puts, exprity_date, "put", symbol, period)
+
+def load_option_chain(connection: duckdb.DuckDBPyConnection, options: pd.DataFrame, exprity_date:str, option_type:str, symbol:str, option_quote_period:str="1d"):
     contracts = options[['contractSymbol', "type", "exprity_date", 'strike', 'currency']]
     contracts = contracts.rename(columns={"contractSymbol": "symbol"})
     contracts['type'] = option_type
@@ -102,8 +108,7 @@ def load_option_chain(connection: duckdb.DuckDBPyConnection, database_name: str,
     from ..quotes import load_historical_quotes    
     contract_price = options[['contractSymbol', "volume", "openInterest", 'impliedVolatility']]
     for row in contract_price.itertuples(index=False):
-        load_historical_quotes.load(connection, database_name=database_name, 
-                                    symbol=row.contractSymbol, period=option_quote_period,
+        load_historical_quotes.load(connection, symbol=row.contractSymbol, period=option_quote_period,
                                     volume=row.volume, 
                                     openinterest=row.openInterest, 
                                     impliedvolatility=row.impliedVolatility)
@@ -122,4 +127,4 @@ if __name__ == "__main__":
         filename = download(url, filename)    
     connection = login.cognito("vaultdb","test123", filename, aws_region="us-east-1")
     connection.execute(f"TRUNCATE DATABASE {database_name};")
-    load(connection, database_name, "msft")
+    load(connection, "msft")

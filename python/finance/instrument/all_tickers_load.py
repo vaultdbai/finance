@@ -23,7 +23,7 @@ def transform(tickers_df: pd.DataFrame) -> pd.DataFrame:
     return tickers_df
 
 
-def load(connection: duckdb.DuckDBPyConnection, database_name: str):
+def load(connection: duckdb.DuckDBPyConnection):
     tickers_df = extract()
     tickers_df = transform(tickers_df)
     
@@ -62,4 +62,4 @@ if __name__ == "__main__":
         filename = download(url, filename)    
     connection = login.cognito("vaultdb","test123", filename, aws_region="us-east-1")
     connection.execute(f"TRUNCATE DATABASE {database_name};")
-    load(connection, database_name)
+    load(connection)

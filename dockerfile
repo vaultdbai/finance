@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy function code
-COPY python/* ${LAMBDA_TASK_ROOT}
+COPY python/ ${LAMBDA_TASK_ROOT}/
 
 # Install extensions
 RUN python ${LAMBDA_TASK_ROOT}/prepare.py

@@ -33,7 +33,6 @@ def transform_and_insert(
 
 def load(
     connection: duckdb.DuckDBPyConnection,
-    database_name: str,
     symbol: str,
     period: str = "1d",
     **additionalvalues
@@ -56,4 +55,4 @@ if __name__ == "__main__":
         filename = download(url, filename)
     connection = login.cognito("vaultdb", "test123", filename, aws_region="us-east-1")
     connection.execute(f"TRUNCATE DATABASE {database_name};")
-    load(connection, database_name, "MSFT240628C00220000", None)
+    load(connection, "MSFT240628C00220000", None)

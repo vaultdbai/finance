@@ -1,0 +1,10 @@
+.git
+tmp
+temp
+log
+*.log
+__pycache__
+.devcontainer
+.github
+.gitignore
+build
