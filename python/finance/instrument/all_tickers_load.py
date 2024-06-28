@@ -51,11 +51,6 @@ def load(connection: duckdb.DuckDBPyConnection, database_name: str):
     # insert into the table "my_table" from the DataFrame "my_df"
     connection.sql("INSERT INTO tickers(exchange, symbol, name, lastsale, netchange, pctchange, marketCap, country, ipoyear, volume, sector, industry, url) SELECT exchange, symbol, name, lastsale, netchange, pctchange, marketCap, country, ipoyear, volume, sector, industry, url FROM tickers_df")
 
-    connection.execute(f"PUSH DATABASE {database_name};")
-
-    connection.execute(f"TRUNCATE DATABASE {database_name};")
-
-
 if __name__ == "__main__":
     import os
     from vaultdb import download
@@ -66,4 +61,5 @@ if __name__ == "__main__":
         url = f"http://test-public-storage-440955376164.s3-website.us-east-1.amazonaws.com/catalogs/{database_name}.db"
         filename = download(url, filename)    
     connection = login.cognito("vaultdb","test123", filename, aws_region="us-east-1")
+    connection.execute(f"TRUNCATE DATABASE {database_name};")
     load(connection, database_name)

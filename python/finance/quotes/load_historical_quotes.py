@@ -36,14 +36,12 @@ def load(
     database_name: str,
     symbol: str,
     period: str = "1d",
+    **additionalvalues
 ):
     history = extract(symbol, period=period)
-
+    for k, v in additionalvalues:
+        history[k] = v
     transform_and_insert(connection, history, "quote", symbol)
-
-    connection.execute(f"PUSH DATABASE {database_name};")
-
-    connection.execute(f"TRUNCATE DATABASE {database_name};")
 
 
 if __name__ == "__main__":
@@ -57,4 +55,5 @@ if __name__ == "__main__":
         url = f"http://test-public-storage-440955376164.s3-website.us-east-1.amazonaws.com/catalogs/{database_name}.db"
         filename = download(url, filename)
     connection = login.cognito("vaultdb", "test123", filename, aws_region="us-east-1")
-    load(connection, database_name, "msft", None)
+    connection.execute(f"TRUNCATE DATABASE {database_name};")
+    load(connection, database_name, "MSFT240628C00220000", None)

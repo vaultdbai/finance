@@ -14,6 +14,7 @@ logger = logging.getLogger()
 def lambda_handler(event, context):
     logger.info(f"event: {event}!")
     connection = None
+    catalog = None
     try:
         preferred_role = auth.GetAuthorizedRole(event["token"])
         logger.debug(f"role: {preferred_role}")
@@ -42,7 +43,7 @@ def lambda_handler(event, context):
                 logger.debug(f"ticker: {ticker}")
                 from finance.instrument import load_instrument
 
-                load_instrument.load(connection, ticker, catalog)
+                load_instrument.load(connection, catalog, ticker)
                 return {
                     "result": "Success",
                     "data": {"result": "finance ticker load ran successfully."},
@@ -50,9 +51,11 @@ def lambda_handler(event, context):
             elif payload.trim().upper() == "LOAD_QUOTES":
                 ticker = event["ticker"]
                 logger.debug(f"ticker: {ticker}")
-                from finance.instrument import load_instrument
+                period = event["period"] if 'period' in event else "1d"
+                logger.debug(f"ticker: {ticker}")
+                from finance.quotes import load_historical_quotes
 
-                load_instrument.load(connection, ticker, catalog)
+                load_historical_quotes.load(connection, catalog, ticker, period)
                 return {
                     "result": "Success",
                     "data": {"result": "finance ticker load ran successfully."},
@@ -70,6 +73,8 @@ def lambda_handler(event, context):
         return {"result": "Error", "message": str(ex)}
     finally:
         if connection:
+            connection.execute(f"PUSH DATABASE {catalog};")
+            connection.execute(f"TRUNCATE DATABASE {catalog};")
             connection.close()
 
 

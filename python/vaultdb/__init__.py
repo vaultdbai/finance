@@ -35,7 +35,7 @@ def download(url, filename=None):
         
   return filename
 
-def sync_and_load(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table_name:str, primary_keys:list[str]):
+def sync_and_load(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table_name:str, primary_keys:list[str], partition_by:str=None):
     df = df.infer_objects()
     try:
         connection.sql("CREATE OR REPLACE TABLE temp_sql AS SELECT * FROM df")
@@ -47,6 +47,9 @@ def sync_and_load(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table
                 create_stmt += f"{row.column_name.lower().replace(' ', '_')} {row.column_type}, "
             create_stmt += f" PRIMARY KEY({",".join(primary_keys)}))"            
             connection.query(create_stmt)
+            if partition_by:
+              partition_by_stmt = f"ALTER TABLE {table_name} PARTITION BY {partition_by};"            
+              connection.query(partition_by_stmt)
         else:
             tbl_df: pd.DataFrame = connection.query(f"SHOW {table_name};").fetchdf()
             table_cols = tbl_df["column_name"].tolist() 
