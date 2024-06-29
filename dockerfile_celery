@@ -3,7 +3,7 @@ WORKDIR /app
 
 RUN pip3 install --upgrade pip
 RUN pip3 install vaultdb
-RUN pip3 install celery flower
+RUN pip3 install celery flower 
 RUN pip3 install fastapi uvicorn
 
 COPY requirements.txt requirements.txt
@@ -18,5 +18,5 @@ RUN python3 prepare.py
 EXPOSE 8000
 
 ENV PYTHONPATH="/app:$PATH"
-
+RUN pip3 install Redis
 ENTRYPOINT []

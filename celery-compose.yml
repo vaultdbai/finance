@@ -11,7 +11,7 @@ services:
       dockerfile: dockerfile_celery
     command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/workspace
+      - ./python:/app
     ports:
       - 8000:8000
     restart: always
@@ -24,10 +24,10 @@ services:
       dockerfile: dockerfile_celery
     command: celery -A tasks worker --pool=solo --loglevel=info
     volumes:
-      - .:/workspace
+      - ./python:/app
     environment:
-      - application_name="dev"
-      - commitlog_directory="/tmp"
+      - application_name=test
+      - commitlog_directory=/tmp
     depends_on:
       - redis
       - app
@@ -38,7 +38,7 @@ services:
       dockerfile: dockerfile_celery
     command: celery -A tasks beat --pool=solo --loglevel=info
     volumes:
-      - .:/workspace
+      - ./python:/app
     depends_on:
       - redis
       - app
