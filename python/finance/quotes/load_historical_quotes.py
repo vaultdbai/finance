@@ -38,7 +38,7 @@ def load(
     **additionalvalues
 ):
     history = extract(symbol, period=period)
-    for k, v in additionalvalues:
+    for k, v in additionalvalues.items():
         history[k] = v
     transform_and_insert(connection, history, "quote", symbol)
 

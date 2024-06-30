@@ -20,43 +20,53 @@ def load_all_tickers(database_name: str = "test"):
     connection = vaultdb.clone("vaultdb", "test123", database_name)
     connection.execute(f"TRUNCATE DATABASE {database_name};")
     all_tickers_load.load(connection)
-    # connection.execute(f"PUSH DATABASE {database_name};")
+    connection.execute(f"PUSH DATABASE {database_name};")
 
 
 @celery_app.task()
 def load_quotes(database_name: str ="test", period: str ="1d"):
     connection = vaultdb.clone("vaultdb", "test123", database_name)
-    tickers = connection.execute(f"select exchange, symbol from tickers;")
+    tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         load_historical_quotes.load(connection, row.symbol, period=period)
         time.sleep(60)
 
-    # connection.execute(f"PUSH DATABASE {database_name};")
-    # connection.execute(f"TRUNCATE DATABASE {database_name};")
+    connection.execute(f"PUSH DATABASE {database_name};")
+    connection.execute(f"TRUNCATE DATABASE {database_name};")
 
 
 @celery_app.task()
 def load_instrument_details(database_name: str ="test"):
     connection = vaultdb.clone("vaultdb", "test123", database_name)
-    tickers = connection.execute(f"select exchange, symbol from tickers;")
+    tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         load_instrument.load(connection, row.symbol)
         time.sleep(60)
-    # connection.execute(f"PUSH DATABASE {database_name};")
-    # connection.execute(f"TRUNCATE DATABASE {database_name};")
+    connection.execute(f"PUSH DATABASE {database_name};")
+    connection.execute(f"TRUNCATE DATABASE {database_name};")
 
 
 @celery_app.task()
 def load_options_and_quotes(database_name: str ="test", period: str ="1d"):
     connection = vaultdb.clone("vaultdb", "test123", database_name)
-    tickers = connection.execute(f"select exchange, symbol from tickers;")
+    tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         load_instrument.load_options_and_quotes(connection, row.symbol, period=period)
         time.sleep(60)
 
-    # connection.execute(f"PUSH DATABASE {database_name};")
-    # connection.execute(f"TRUNCATE DATABASE {database_name};")
+    connection.execute(f"PUSH DATABASE {database_name};")
+    connection.execute(f"TRUNCATE DATABASE {database_name};")
 
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    # Executes every Monday morning at 7:30 a.m.
+    'load_quotes_daily': {
+        'task': 'tasks.load_quotes',
+        'schedule': crontab(hour=5, minute=30, day_of_week=1),
+        'args': ("test", "1d"),
+    },
+}
 
 if __name__ == "__main__":
     load_all_tickers()

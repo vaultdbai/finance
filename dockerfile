@@ -12,5 +12,8 @@ COPY python/ ${LAMBDA_TASK_ROOT}/
 # Install extensions
 RUN python ${LAMBDA_TASK_ROOT}/prepare.py
 
+ENV TZ=America/New_York
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
 CMD [ "lambda.handler" ]

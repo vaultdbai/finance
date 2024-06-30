@@ -19,19 +19,36 @@ def extract(symbol:str) -> yf.Ticker:
     logger.debug(ticker.isin)
     return ticker
 
-def transform_and_insert(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table_name:str, symbol:str, primary_keys:list[str], partition_by:str=None) -> yf.Ticker:
+def transform_and_insert(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table_name:str, symbol:str, primary_keys:list[str], partition_by:str=None, reset_index=True) -> yf.Ticker:
     if not df.empty:
         if isinstance(df,pd.Series):
             df = df.to_frame()
         if symbol:
             df["symbol"] = symbol.upper()
-        df.reset_index(inplace=True)    
+        if reset_index:
+            df.reset_index(inplace=True)    
+            if df.columns[0] == 'index':
+                df = df.rename(columns={"index": "Date"})
         sync_and_load(connection, df, table_name, primary_keys, partition_by)
     return df
 
 
 def load(connection: duckdb.DuckDBPyConnection, symbol:str):
     ticker = extract(symbol)
+    # show holders
+    major_holders = ticker.major_holders
+    major_holders["Date Reported"] = datetime.today()
+    transform_and_insert(connection, major_holders, "major_holders", symbol, [], 'symbol', reset_index=False)
+    transform_and_insert(connection, ticker.institutional_holders, "institutional_holders", symbol, [], 'symbol', reset_index=False)
+    transform_and_insert(connection, ticker.mutualfund_holders, "mutualfund_holders", symbol, [], 'symbol', reset_index=False)
+    transform_and_insert(connection, ticker.insider_transactions, "insider_transactions", symbol, [], 'symbol', reset_index=False)
+    insider_purchases = ticker.insider_purchases
+    insider_purchases["Date Reported"] = datetime.today()
+    transform_and_insert(connection, insider_purchases, "insider_purchases", symbol, [], 'symbol', reset_index=False)
+    insider_roster_holders = ticker.insider_roster_holders
+    insider_roster_holders["Date Reported"] = datetime.today()
+    transform_and_insert(connection, insider_roster_holders, "insider_roster_holders", symbol, [], 'symbol', reset_index=False) # Partion this table no need of primary key
+
     # show actions (dividends, splits, capital gains)
     transform_and_insert(connection, ticker.actions, "actions", symbol, ['symbol', 'date'])
     transform_and_insert(connection, ticker.dividends, "dividends", symbol, ['symbol', 'date'])
@@ -41,75 +58,65 @@ def load(connection: duckdb.DuckDBPyConnection, symbol:str):
     # show financials:
     # - income statement
     # see `Ticker.get_income_stmt()` for more options    
-    transform_and_insert(connection, ticker.income_stmt, "income_stmt", symbol, ['symbol'])
-    transform_and_insert(connection, ticker.quarterly_income_stmt, "quarterly_income_stmt", symbol, ['symbol'])
+    transform_and_insert(connection, ticker.income_stmt.transpose(), "income_stmt", symbol, [], 'symbol')
+    transform_and_insert(connection, ticker.quarterly_income_stmt.transpose(), "quarterly_income_stmt", symbol, [], 'symbol')
     # - balance sheet
-    transform_and_insert(connection, ticker.balance_sheet, "balance_sheet", symbol, ['symbol'])
-    transform_and_insert(connection, ticker.quarterly_balance_sheet, "quarterly_balance_sheet", symbol, ['symbol'])
+    transform_and_insert(connection, ticker.balance_sheet.transpose(), "balance_sheet", symbol, [], 'symbol')
+    transform_and_insert(connection, ticker.quarterly_balance_sheet.transpose(), "quarterly_balance_sheet", symbol, [], 'symbol')
     # - cash flow statement
-    transform_and_insert(connection, ticker.cashflow, "cashflow", symbol, ['symbol'])
-    transform_and_insert(connection, ticker.quarterly_cashflow, "quarterly_cashflow", symbol, ['symbol'])
-    # show holders
-    major_holders = ticker.major_holders
-    major_holders["Date Reported"] = datetime.today()
-    transform_and_insert(connection, major_holders, "major_holders", symbol, ['symbol', "date_reported"])
-    transform_and_insert(connection, ticker.institutional_holders, "institutional_holders", symbol, ['symbol', "date_reported"])
-    transform_and_insert(connection, ticker.mutualfund_holders, "mutualfund_holders", symbol, ['symbol', "date_reported"])
-    transform_and_insert(connection, ticker.insider_transactions, "insider_transactions", symbol, ['symbol', "start_date"])
-    insider_purchases = ticker.insider_purchases
-    insider_purchases["Date Reported"] = datetime.today()
-    transform_and_insert(connection, insider_purchases, "insider_purchases", symbol, ['symbol', "date_reported"])
-    insider_roster_holders = ticker.insider_roster_holders
-    insider_roster_holders["Date Reported"] = datetime.today()
-    transform_and_insert(connection, insider_roster_holders, "insider_roster_holders", symbol, [], 'symbol') # Partion this table no need of primary key
+    transform_and_insert(connection, ticker.cashflow.transpose(), "cashflow", symbol, [], 'symbol')
+    transform_and_insert(connection, ticker.quarterly_cashflow.transpose(), "quarterly_cashflow", symbol, [], 'symbol')
 
     # show recommendations
     recommendations = ticker.recommendations
     recommendations["Date Reported"] = datetime.today()
-    transform_and_insert(connection, recommendations, "recommendations", symbol, ['symbol', "date_reported", "period"])
+    transform_and_insert(connection, recommendations, "recommendations", symbol, [], 'symbol', reset_index=False)
     recommendations_summary = ticker.recommendations_summary
     recommendations_summary["Date Reported"] = datetime.today()
-    transform_and_insert(connection, recommendations_summary, "recommendations_summary", symbol, ['symbol', "date_reported", "period"])
-    transform_and_insert(connection, ticker.upgrades_downgrades, "upgrades_downgrades", symbol, ['symbol', "gradedate", "firm"])
+    transform_and_insert(connection, recommendations_summary, "recommendations_summary", symbol, [], 'symbol', reset_index=False)
+    transform_and_insert(connection, ticker.upgrades_downgrades, "upgrades_downgrades", symbol, [], 'symbol', reset_index=False)
 
     # show share count
-    shares_full = ticker.get_shares_full(start=yesterday.strftime("%Y-%m-%d"), end=None)
-    transform_and_insert(connection, shares_full, "shares_full", symbol, ['symbol', 'date'])
+    shares_full = ticker.get_shares_full(start='1901-01-01', end=datetime.today().strftime("%Y-%m-%d"))
+    shares_full = shares_full.to_frame()
+    shares_full.reset_index(inplace=True) 
+    shares_full = shares_full.rename(columns={0: "shares", "index": "Date"})    
+    shares_full = shares_full.drop_duplicates(subset=['Date'])
+    transform_and_insert(connection, shares_full, "shares_outstanding", symbol, ['symbol', 'date'], 'symbol', reset_index=False)
 
     # Show future and historic earnings dates, returns at most next 4 quarters and last 8 quarters by default.
     # Note: If more are needed use msft.get_earnings_dates(limit=XX) with increased limit argument.
-    transform_and_insert(connection, ticker.earnings_dates, "earnings_dates", symbol, ['symbol', "earnings_date"])
+    earnings_dates = ticker.earnings_dates
+    earnings_dates = earnings_dates.rename(columns={"Surprise(%)": "Surprise_Percent"})    
+    transform_and_insert(connection, earnings_dates, "earnings_dates", symbol, ['symbol', "earnings_date"])
 
-    # show ISIN code - *experimental*
-    # ISIN = International Securities Identification Number
-    #msft.isin
-
-def load_news(connection: duckdb.DuckDBPyConnection, symbol:str, period:str):
+def load_news(connection: duckdb.DuckDBPyConnection, symbol:str):
     ticker = extract(symbol)
     # show news
-    transform_and_insert(connection, ticker.news, "news", symbol, ['symbol'])
+    news = pd.DataFrame(ticker.news)
+    news["Date Reported"] = datetime.today()    
+    transform_and_insert(connection, news, "news_links", symbol, [], 'symbol', reset_index=False)
 
 def load_options_and_quotes(connection: duckdb.DuckDBPyConnection, symbol:str, period:str):
     ticker = extract(symbol)
     
     # get option chain for specific expiration
-    for exprity_date in ticker.options:
-        opt = ticker.option_chain(exprity_date)
-        load_option_chain(connection, opt.calls, exprity_date, "call", symbol, period)
-        load_option_chain(connection, opt.puts, exprity_date, "put", symbol, period)
+    for expiry_date in ticker.options:
+        opt = ticker.option_chain(expiry_date)
+        load_option_chain(connection, opt.calls, expiry_date, "call", symbol, period)
+        load_option_chain(connection, opt.puts, expiry_date, "put", symbol, period)
 
-def load_option_chain(connection: duckdb.DuckDBPyConnection, options: pd.DataFrame, exprity_date:str, option_type:str, symbol:str, option_quote_period:str="1d"):
-    contracts = options[['contractSymbol', "type", "exprity_date", 'strike', 'currency']]
+def load_option_chain(connection: duckdb.DuckDBPyConnection, options: pd.DataFrame, expiry_date:str, option_type:str, symbol:str, option_quote_period:str="1d"):
+    contracts = options[['contractSymbol', 'strike', 'currency']]
     contracts = contracts.rename(columns={"contractSymbol": "symbol"})
     contracts['type'] = option_type
     contracts['underlying'] = symbol
-    contracts['exprity_date'] = datetime.strptime(str(exprity_date), "%Y-%m-%d")
-    transform_and_insert(connection, contracts, "option_chain", None, ['symbol'])
-    from ..quotes import load_historical_quotes    
-    contract_price = options[['contractSymbol', "volume", "openInterest", 'impliedVolatility']]
+    contracts['expiry_date'] = datetime.strptime(str(expiry_date), "%Y-%m-%d")
+    sync_and_load(connection, contracts, "option_chain", ['symbol'])
+    from finance.quotes import load_historical_quotes    
+    contract_price = options[['contractSymbol', "openInterest", 'impliedVolatility']]
     for row in contract_price.itertuples(index=False):
         load_historical_quotes.load(connection, symbol=row.contractSymbol, period=option_quote_period,
-                                    volume=row.volume, 
                                     openinterest=row.openInterest, 
                                     impliedvolatility=row.impliedVolatility)
             
@@ -126,5 +133,8 @@ if __name__ == "__main__":
         url = f"http://test-public-storage-440955376164.s3-website.us-east-1.amazonaws.com/catalogs/{database_name}.db"
         filename = download(url, filename)    
     connection = login.cognito("vaultdb","test123", filename, aws_region="us-east-1")
+    #connection.execute(f"DROP TABLE insider_purchases;")
     connection.execute(f"TRUNCATE DATABASE {database_name};")
-    load(connection, "msft")
+    #load(connection, "msft")
+    #load_news(connection, "msft")
+    load_options_and_quotes(connection, "msft", period="max")

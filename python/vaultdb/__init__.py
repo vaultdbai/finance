@@ -85,7 +85,10 @@ def sync_and_load(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table
           create_stmt = f"CREATE OR REPLACE TABLE {table_name}("
           for row in df_tmp_sql.itertuples(index=False):
               create_stmt += f"{row.column_name.lower().replace(' ', '_')} {row.column_type}, "
-          create_stmt += f" PRIMARY KEY({",".join(primary_keys)}))"            
+          if primary_keys:
+            create_stmt += f"PRIMARY KEY({",".join(primary_keys)}))"            
+          else:
+            create_stmt = f"{create_stmt[:-2]})"            
           connection.query(create_stmt)
           if partition_by:
             partition_by_stmt = f"ALTER TABLE {table_name} PARTITION BY {partition_by};"            
