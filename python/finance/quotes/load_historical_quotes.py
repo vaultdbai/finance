@@ -27,7 +27,7 @@ def transform_and_insert(
 ) -> yf.Ticker:
     df["symbol"] = symbol.upper()
     df.reset_index(inplace=True)
-    sync_and_load(connection, df, table_name, ["symbol", "date"])
+    sync_and_load(connection, df, table_name, ["symbol", "date"], "symbol")
     return df
 
 

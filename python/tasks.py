@@ -24,9 +24,14 @@ def load_all_tickers(database_name: str = "test"):
 
 
 @celery_app.task()
-def load_quotes(database_name: str ="test", period: str ="1d"):
+def load_quotes(database_name: str ="test", period: str ="1d", symbol_prefix:str=None):
     connection = vaultdb.clone("vaultdb", "test123", database_name)
-    tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
+    connection.execute(f"PRAGMA enable_data_inheritance;;")
+    if symbol_prefix:        
+        tickers = connection.execute(f"select exchange, symbol from tickers where symbol like '{symbol_prefix}%';").fetchdf()
+    else:
+        tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
+    connection.execute(f"PRAGMA disable_data_inheritance;")
     for row in tickers.itertuples(index=False):
         load_historical_quotes.load(connection, row.symbol, period=period)
         time.sleep(60)
