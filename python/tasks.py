@@ -1,8 +1,9 @@
 import os
 import time
 import vaultdb
+import shutil
 
-from compute import App
+from vaultdb.compute import App
 
 from finance.instrument import all_tickers_load, load_instrument
 from finance.quotes import load_historical_quotes
@@ -46,6 +47,7 @@ def load_instrument_details(database_name: str ="finance"):
     shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
     connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
+    connection.execute(f"PRAGMA enable_data_inheritance;;")
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         load_instrument.load(connection, row.symbol)
@@ -60,6 +62,7 @@ def load_options_and_quotes(database_name: str ="finance", period: str ="1d"):
     shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
     connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
+    connection.execute(f"PRAGMA enable_data_inheritance;;")
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         load_instrument.load_options_and_quotes(connection, row.symbol, period=period)
@@ -68,7 +71,7 @@ def load_options_and_quotes(database_name: str ="finance", period: str ="1d"):
         time.sleep(WAIT_TIME)
 
 
-from compute.schedules import crontab
+from vaultdb.compute.schedules import crontab
 
 App.conf.beat_schedule = {
     # Executes every Monday morning at 7:30 a.m.
@@ -80,7 +83,7 @@ App.conf.beat_schedule = {
 }
 
 if __name__ == "__main__":
-    load_all_tickers()
+    load_instrument_details()
     # load_quotes(period="max")
     # load_quotes(period="1d")
     # load_options_and_quotes()
