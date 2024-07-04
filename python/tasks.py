@@ -11,7 +11,8 @@ WAIT_TIME = 20
 
 @App.task()
 def load_all_tickers(database_name: str = "finance"):
-    clone_path = "/tmp/tickers" 
+    clone_path = "/tmp/tickers"
+    shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
     connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     connection.execute(f"TRUNCATE DATABASE {database_name};")
@@ -22,6 +23,7 @@ def load_all_tickers(database_name: str = "finance"):
 @App.task()
 def load_quotes(database_name: str ="finance", period: str ="1d", symbol_prefix:str=None):
     clone_path = "/tmp/quotes" 
+    shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
     connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     connection.execute(f"PRAGMA enable_data_inheritance;;")
@@ -41,6 +43,7 @@ def load_quotes(database_name: str ="finance", period: str ="1d", symbol_prefix:
 @App.task()
 def load_instrument_details(database_name: str ="finance"):
     clone_path = "/tmp/instrument" 
+    shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
     connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
@@ -54,6 +57,7 @@ def load_instrument_details(database_name: str ="finance"):
 @App.task()
 def load_options_and_quotes(database_name: str ="finance", period: str ="1d"):
     clone_path = "/tmp/options" 
+    shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
     connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()

@@ -46,7 +46,7 @@ def load(connection: duckdb.DuckDBPyConnection):
     
     connection.sql(create_stmt)
      
-    connection.sql("ALTER TABLE tickers PARTITION BY exchange_name;")
+    connection.sql("ALTER TABLE tickers PARTITION BY exchange;")
         
     # insert into the table "my_table" from the DataFrame "my_df"
     connection.sql("INSERT INTO tickers(exchange, symbol, name, lastsale, netchange, pctchange, marketCap, country, ipoyear, volume, sector, industry, url) SELECT exchange, symbol, name, lastsale, netchange, pctchange, marketCap, country, ipoyear, volume, sector, industry, url FROM tickers_df")
