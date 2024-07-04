@@ -1,31 +1,29 @@
 import os
 import time
 import vaultdb
-from duckdb import login
 
-from celery import Celery
-
-redis_broker = os.getenv("redis_broker", "redis:6379")
-
-celery_app = Celery(
-    "tasks", broker=f"redis://{redis_broker}/0", backend=f"redis://{redis_broker}/0"
-)
+from compute import App
 
 from finance.instrument import all_tickers_load, load_instrument
 from finance.quotes import load_historical_quotes
 
+WAIT_TIME = 20
 
-@celery_app.task()
-def load_all_tickers(database_name: str = "test"):
-    connection = vaultdb.clone("vaultdb", "test123", database_name)
+@App.task()
+def load_all_tickers(database_name: str = "finance"):
+    clone_path = "/tmp/tickers" 
+    os.makedirs(clone_path)
+    connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     connection.execute(f"TRUNCATE DATABASE {database_name};")
     all_tickers_load.load(connection)
     connection.execute(f"PUSH DATABASE {database_name};")
 
 
-@celery_app.task()
-def load_quotes(database_name: str ="test", period: str ="1d", symbol_prefix:str=None):
-    connection = vaultdb.clone("vaultdb", "test123", database_name)
+@App.task()
+def load_quotes(database_name: str ="finance", period: str ="1d", symbol_prefix:str=None):
+    clone_path = "/tmp/quotes" 
+    os.makedirs(clone_path)
+    connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     if symbol_prefix:        
         tickers = connection.execute(f"select exchange, symbol from tickers where symbol like '{symbol_prefix}%';").fetchdf()
@@ -34,42 +32,46 @@ def load_quotes(database_name: str ="test", period: str ="1d", symbol_prefix:str
     connection.execute(f"PRAGMA disable_data_inheritance;")
     for row in tickers.itertuples(index=False):
         load_historical_quotes.load(connection, row.symbol, period=period)
-        time.sleep(60)
+        connection.execute(f"PUSH DATABASE {database_name};")
+        connection.execute(f"TRUNCATE DATABASE {database_name};")
+        time.sleep(WAIT_TIME)
 
-    connection.execute(f"PUSH DATABASE {database_name};")
-    connection.execute(f"TRUNCATE DATABASE {database_name};")
 
 
-@celery_app.task()
-def load_instrument_details(database_name: str ="test"):
-    connection = vaultdb.clone("vaultdb", "test123", database_name)
+@App.task()
+def load_instrument_details(database_name: str ="finance"):
+    clone_path = "/tmp/instrument" 
+    os.makedirs(clone_path)
+    connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         load_instrument.load(connection, row.symbol)
-        time.sleep(60)
-    connection.execute(f"PUSH DATABASE {database_name};")
-    connection.execute(f"TRUNCATE DATABASE {database_name};")
+        connection.execute(f"PUSH DATABASE {database_name};")
+        connection.execute(f"TRUNCATE DATABASE {database_name};")
+        time.sleep(WAIT_TIME)
 
 
-@celery_app.task()
-def load_options_and_quotes(database_name: str ="test", period: str ="1d"):
-    connection = vaultdb.clone("vaultdb", "test123", database_name)
+@App.task()
+def load_options_and_quotes(database_name: str ="finance", period: str ="1d"):
+    clone_path = "/tmp/options" 
+    os.makedirs(clone_path)
+    connection = vaultdb.clone("vaultdb", "test123", database_name, path=clone_path)
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         load_instrument.load_options_and_quotes(connection, row.symbol, period=period)
-        time.sleep(60)
+        connection.execute(f"PUSH DATABASE {database_name};")
+        connection.execute(f"TRUNCATE DATABASE {database_name};")
+        time.sleep(WAIT_TIME)
 
-    connection.execute(f"PUSH DATABASE {database_name};")
-    connection.execute(f"TRUNCATE DATABASE {database_name};")
 
-from celery.schedules import crontab
+from compute.schedules import crontab
 
-celery_app.conf.beat_schedule = {
+App.conf.beat_schedule = {
     # Executes every Monday morning at 7:30 a.m.
     'load_quotes_daily': {
         'task': 'tasks.load_quotes',
         'schedule': crontab(hour=5, minute=30, day_of_week=1),
-        'args': ("test", "1d"),
+        'args': ("finance", "1d"),
     },
 }
 

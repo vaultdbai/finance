@@ -53,13 +53,8 @@ def load(connection: duckdb.DuckDBPyConnection):
 
 if __name__ == "__main__":
     import os
-    from vaultdb import download
-    from duckdb import login
+    from vaultdb import clone
     database_name = "test"
-    filename = f"/workspace/{database_name}.db"
-    if not os.path.isfile(filename):
-        url = f"http://test-public-storage-440955376164.s3-website.us-east-1.amazonaws.com/catalogs/{database_name}.db"
-        filename = download(url, filename)    
-    connection = login.cognito("vaultdb","test123", filename, aws_region="us-east-1")
+    connection = clone("vaultdb", "test123", f"/workspace/{database_name}.db", aws_region="us-east-1")    
     connection.execute(f"TRUNCATE DATABASE {database_name};")
     load(connection)

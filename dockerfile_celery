@@ -1,10 +1,11 @@
-FROM public.ecr.aws/lambda/python:3.12
+FROM public.ecr.aws/i2q7a2j7/vaultdb:lambda
+
 WORKDIR /app
 
 RUN pip3 install --upgrade pip
-RUN pip3 install vaultdb
 RUN pip3 install celery flower 
 RUN pip3 install fastapi uvicorn
+RUN pip3 install Redis
 
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
@@ -21,5 +22,5 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 EXPOSE 8000
 
 ENV PYTHONPATH="/app:$PATH"
-RUN pip3 install Redis
+
 ENTRYPOINT []
