@@ -11,8 +11,9 @@ import logging
 logger = logging.getLogger()
 
 
+
 def extract(symbol: str, period) -> pd.DataFrame:
-    session = requests_cache.CachedSession("yfinance.cache")
+    session = requests_cache.CachedSession(f"{__file__}.yfinance.cache", )
     session.headers["User-agent"] = "my-program/1.0"
     ticker = yf.Ticker(symbol.upper(), session=session)
     hist = ticker.history(period=period)

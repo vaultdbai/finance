@@ -13,7 +13,7 @@ logger = logging.getLogger()
 yesterday = datetime.today() - timedelta(days = 1)
 
 def extract(symbol:str) -> yf.Ticker:
-    session = requests_cache.CachedSession('yfinance.cache')
+    session = requests_cache.CachedSession(f"{__file__}.yfinance.cache", )
     session.headers['User-agent'] = 'my-program/1.0'
     ticker = yf.Ticker(symbol.upper(), session=session)
     logger.debug(ticker.isin)
