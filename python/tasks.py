@@ -48,7 +48,6 @@ def load_quotes(database_name: str ="finance", period: str ="1d", symbol_prefix:
             connection.execute(f"TRUNCATE DATABASE {database_name};")
         except Exception as ex:
             logger.error(ex)
-        time.sleep(WAIT_TIME)
 
 
 @App.task()
@@ -66,7 +65,6 @@ def load_instrument_details(database_name: str ="finance"):
             connection.execute(f"TRUNCATE DATABASE {database_name};")
         except Exception as ex:
             logger.error(ex)
-        time.sleep(WAIT_TIME)
 
 
 @App.task()
@@ -84,7 +82,6 @@ def load_options_and_quotes(database_name: str ="finance", period: str ="1d"):
             connection.execute(f"TRUNCATE DATABASE {database_name};")
         except Exception as ex:
             logger.error(ex)
-        time.sleep(WAIT_TIME)
 
 
 from vaultdb.compute.schedules import crontab

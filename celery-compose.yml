@@ -17,17 +17,31 @@ services:
     restart: always
     depends_on:
       - redis      
-  celery_worker:
-    container_name: celery_worker
+  celery_worker1:
+    container_name: celery_worker_1
     build:
       context: .
       dockerfile: dockerfile_celery
-    command: celery -A tasks worker --pool=solo --loglevel=info
+    command: celery -A tasks worker --loglevel=info
     volumes:
       - ./python:/app
     environment:
       - application_name=test
-      - commitlog_directory=/tmp
+      - vaultdb_user="vaultdb"
+      - vaultdb_password="test123"
+    depends_on:
+      - redis
+      - app
+  celery_worker2:
+    container_name: celery_worker_2
+    build:
+      context: .
+      dockerfile: dockerfile_celery
+    command: celery -A tasks worker --loglevel=info
+    volumes:
+      - ./python:/app
+    environment:
+      - application_name=test
       - vaultdb_user="vaultdb"
       - vaultdb_password="test123"
     depends_on:
@@ -38,7 +52,7 @@ services:
     build:
       context: .
       dockerfile: dockerfile_celery
-    command: celery -A tasks beat --pool=solo --loglevel=info
+    command: celery -A tasks beat --loglevel=info
     volumes:
       - ./python:/app
     depends_on:
@@ -55,5 +69,6 @@ services:
     depends_on:
       - redis
       - app
-      - celery_worker
+      - celery_worker1
+      - celery_worker2
       - celery_beat
