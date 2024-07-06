@@ -3,6 +3,11 @@ import time
 import vaultdb
 import shutil
 
+# Set up the logger
+import logging
+
+logger = logging.getLogger()
+
 from vaultdb.compute import App
 
 from finance.instrument import all_tickers_load, load_instrument
@@ -34,11 +39,13 @@ def load_quotes(database_name: str ="finance", period: str ="1d", symbol_prefix:
         tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     connection.execute(f"PRAGMA disable_data_inheritance;")
     for row in tickers.itertuples(index=False):
-        load_historical_quotes.load(connection, row.symbol, period=period)
-        connection.execute(f"PUSH DATABASE {database_name};")
-        connection.execute(f"TRUNCATE DATABASE {database_name};")
+        try:
+            load_historical_quotes.load(connection, row.symbol, period=period)
+            connection.execute(f"PUSH DATABASE {database_name};")
+            connection.execute(f"TRUNCATE DATABASE {database_name};")
+        except Exception as ex:
+            logger.error(ex)
         time.sleep(WAIT_TIME)
-
 
 
 @App.task()
@@ -50,9 +57,12 @@ def load_instrument_details(database_name: str ="finance"):
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
-        load_instrument.load(connection, row.symbol)
-        connection.execute(f"PUSH DATABASE {database_name};")
-        connection.execute(f"TRUNCATE DATABASE {database_name};")
+        try:
+            load_instrument.load(connection, row.symbol)
+            connection.execute(f"PUSH DATABASE {database_name};")
+            connection.execute(f"TRUNCATE DATABASE {database_name};")
+        except Exception as ex:
+            logger.error(ex)
         time.sleep(WAIT_TIME)
 
 
@@ -65,9 +75,12 @@ def load_options_and_quotes(database_name: str ="finance", period: str ="1d"):
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
-        load_instrument.load_options_and_quotes(connection, row.symbol, period=period)
-        connection.execute(f"PUSH DATABASE {database_name};")
-        connection.execute(f"TRUNCATE DATABASE {database_name};")
+        try:
+            load_instrument.load_options_and_quotes(connection, row.symbol, period=period)
+            connection.execute(f"PUSH DATABASE {database_name};")
+            connection.execute(f"TRUNCATE DATABASE {database_name};")
+        except Exception as ex:
+            logger.error(ex)
         time.sleep(WAIT_TIME)
 
 

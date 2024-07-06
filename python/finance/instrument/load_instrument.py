@@ -31,8 +31,10 @@ def transform_and_insert(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame
                 df = df.rename(columns={"index": "Date"})
         sync_and_load(connection, df, table_name, primary_keys, partition_by)    
 
-def try_transform_and_insert(connection: duckdb.DuckDBPyConnection, df: pd.DataFrame, table_name:str, symbol:str, primary_keys:list[str], partition_by:str=None, reset_index=True):
+def try_transform_and_insert(connection: duckdb.DuckDBPyConnection, df, table_name:str, symbol:str, primary_keys:list[str], partition_by:str=None, reset_index=True):
     try:
+        if isinstance(df, yf.Ticker):
+            df = getattr(df, table_name)
         transform_and_insert(connection, df, table_name, symbol, primary_keys, partition_by, reset_index=reset_index)
     except Exception as ex:
         logger.error(ex)
@@ -47,9 +49,9 @@ def load(connection: duckdb.DuckDBPyConnection, symbol:str):
     except Exception as ex:
         logger.error(ex)
         
-    try_transform_and_insert(connection, ticker.institutional_holders, "institutional_holders", symbol, [], 'symbol', reset_index=False)
-    try_transform_and_insert(connection, ticker.mutualfund_holders, "mutualfund_holders", symbol, [], 'symbol', reset_index=False)
-    try_transform_and_insert(connection, ticker.insider_transactions, "insider_transactions", symbol, [], 'symbol', reset_index=False)
+    try_transform_and_insert(connection, ticker, "institutional_holders", symbol, [], 'symbol', reset_index=False)
+    try_transform_and_insert(connection, ticker, "mutualfund_holders", symbol, [], 'symbol', reset_index=False)
+    try_transform_and_insert(connection, ticker, "insider_transactions", symbol, [], 'symbol', reset_index=False)
     
     try:
         insider_purchases = ticker.insider_purchases
@@ -66,22 +68,41 @@ def load(connection: duckdb.DuckDBPyConnection, symbol:str):
         logger.error(ex)
 
     # show actions (dividends, splits, capital gains)
-    try_transform_and_insert(connection, ticker.actions, "actions", symbol, ['symbol', 'date'])
-    try_transform_and_insert(connection, ticker.dividends, "dividends", symbol, ['symbol', 'date'])
-    try_transform_and_insert(connection, ticker.capital_gains, "capital_gains", symbol, ['symbol', 'date']) # only for mutual funds & etfs
-    try_transform_and_insert(connection, ticker.splits, "splits", symbol, ['symbol', 'date'])
+    try_transform_and_insert(connection, ticker, "actions", symbol, ['symbol', 'date'])
+    try_transform_and_insert(connection, ticker, "dividends", symbol, ['symbol', 'date'])
+    try_transform_and_insert(connection, ticker, "capital_gains", symbol, ['symbol', 'date']) # only for mutual funds & etfs
+    try_transform_and_insert(connection, ticker, "splits", symbol, ['symbol', 'date'])
 
     # show financials:
     # - income statement
     # see `Ticker.get_income_stmt()` for more options    
-    try_transform_and_insert(connection, ticker.income_stmt.transpose(), "income_stmt", symbol, [], 'symbol')
-    try_transform_and_insert(connection, ticker.quarterly_income_stmt.transpose(), "quarterly_income_stmt", symbol, [], 'symbol')
-    # - balance sheet
-    try_transform_and_insert(connection, ticker.balance_sheet.transpose(), "balance_sheet", symbol, [], 'symbol')
-    try_transform_and_insert(connection, ticker.quarterly_balance_sheet.transpose(), "quarterly_balance_sheet", symbol, [], 'symbol')
+    try:
+        try_transform_and_insert(connection, ticker.income_stmt.transpose(), "income_statement", symbol, [], 'symbol')
+    except Exception as ex:
+        logger.error(ex)
+        
+    try:
+        try_transform_and_insert(connection, ticker.quarterly_income_stmt.transpose(), "quarterly_income_statement", symbol, [], 'symbol')
+    except Exception as ex:
+        logger.error(ex)
+# - balance sheet
+    try:
+        try_transform_and_insert(connection, ticker.balance_sheet.transpose(), "balance_sheet", symbol, [], 'symbol')
+    except Exception as ex:
+        logger.error(ex)
+    try:
+        try_transform_and_insert(connection, ticker.quarterly_balance_sheet.transpose(), "quarterly_balance_sheet", symbol, [], 'symbol')
+    except Exception as ex:
+        logger.error(ex)
     # - cash flow statement
-    try_transform_and_insert(connection, ticker.cashflow.transpose(), "cashflow", symbol, [], 'symbol')
-    try_transform_and_insert(connection, ticker.quarterly_cashflow.transpose(), "quarterly_cashflow", symbol, [], 'symbol')
+    try:
+        try_transform_and_insert(connection, ticker.cashflow.transpose(), "cashflow", symbol, [], 'symbol')
+    except Exception as ex:
+        logger.error(ex)
+    try:
+        try_transform_and_insert(connection, ticker.quarterly_cashflow.transpose(), "quarterly_cashflow", symbol, [], 'symbol')
+    except Exception as ex:
+        logger.error(ex)
 
     # show recommendations
     try:
@@ -98,7 +119,7 @@ def load(connection: duckdb.DuckDBPyConnection, symbol:str):
     except Exception as ex:
         logger.error(ex)
         
-    try_transform_and_insert(connection, ticker.upgrades_downgrades, "upgrades_downgrades", symbol, [], 'symbol', reset_index=False)
+    try_transform_and_insert(connection, ticker, "upgrades_downgrades", symbol, [], 'symbol', reset_index=False)
 
     # show share count
     try:
