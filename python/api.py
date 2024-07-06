@@ -5,25 +5,30 @@ import asyncio
 
 app = FastAPI()
 
+
 @app.get("/load_all_tickers")
-async def load_all_tickers(database_name = "finance"):
+async def load_all_tickers(database_name="finance"):
     result = tasks.load_all_tickers.delay(database_name)
     return {"task_id": result.id}
 
+
 @app.get("/load_instrument_details")
-async def load_instrument_details(database_name = "finance"):
+async def load_instrument_details(database_name="finance"):
     result = tasks.load_instrument_details.delay(database_name)
     return {"task_id": result.id}
 
+
 @app.get("/load_quotes")
-async def load_quotes(database_name = "finance", period='1d', symbol_prefix:str=None):
+async def load_quotes(database_name="finance", period="1d", symbol_prefix: str = None):
     result = tasks.load_quotes.delay(database_name, period=period, symbol_prefix=symbol_prefix)
     return {"task_id": result.id}
 
+
 @app.get("/load_options_and_quotes")
-async def load_options_and_quotes(database_name = "finance"):
+async def load_options_and_quotes(database_name="finance"):
     result = tasks.load_options_and_quotes.delay(database_name)
     return {"task_id": result.id}
+
 
 @app.websocket("/ws/task/{task_id}")
 async def websocket_endpoint(websocket: WebSocket, task_id: str):
@@ -49,4 +54,5 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

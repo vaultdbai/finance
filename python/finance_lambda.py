@@ -26,9 +26,7 @@ def lambda_handler(event, context):
 
         test_db_path = f"{commitlog_directory}/{catalog}.db"
         if os.path.isfile(test_db_path):
-            connection = duckdb.connect(
-                f"{commitlog_directory}/{catalog}.db", True, role=preferred_role
-            )
+            connection = duckdb.connect(f"{commitlog_directory}/{catalog}.db", True, role=preferred_role)
 
             if payload.trim().upper() == "LOAD_TICKERS":
                 from finance.instrument import all_tickers_load
@@ -51,7 +49,7 @@ def lambda_handler(event, context):
             elif payload.trim().upper() == "LOAD_QUOTES":
                 ticker = event["ticker"]
                 logger.debug(f"ticker: {ticker}")
-                period = event["period"] if 'period' in event else "1d"
+                period = event["period"] if "period" in event else "1d"
                 logger.debug(f"ticker: {ticker}")
                 from finance.quotes import load_historical_quotes
 

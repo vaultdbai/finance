@@ -11,9 +11,10 @@ import logging
 logger = logging.getLogger()
 
 
-
 def extract(symbol: str, period) -> pd.DataFrame:
-    session = requests_cache.CachedSession(f"{__file__}.yfinance.cache", )
+    session = requests_cache.CachedSession(
+        f"{__file__}.yfinance.cache",
+    )
     session.headers["User-agent"] = "my-program/1.0"
     ticker = yf.Ticker(symbol.upper(), session=session)
     hist = ticker.history(period=period)
@@ -41,7 +42,7 @@ def load(
     connection: duckdb.DuckDBPyConnection,
     symbol: str,
     period: str = "1d",
-    **additionalvalues
+    **additionalvalues,
 ):
     history = extract(symbol, period=period)
     for k, v in additionalvalues.items():
@@ -53,6 +54,6 @@ if __name__ == "__main__":
     import os
     from vaultdb import clone
     database_name = "test"
-    connection = clone("vaultdb", "test123", f"/workspace/{database_name}.db", aws_region="us-east-1")    
+    connection = clone("vaultdb", "test123", f"/workspace/{database_name}.db", aws_region="us-east-1")
     connection.execute(f"TRUNCATE DATABASE {database_name};")
     load(connection, "MSFT240628C00220000", None)
