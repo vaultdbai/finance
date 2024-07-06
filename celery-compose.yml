@@ -28,6 +28,8 @@ services:
     environment:
       - application_name=test
       - commitlog_directory=/tmp
+      - vaultdb_user="vaultdb"
+      - vaultdb_password="test123"
     depends_on:
       - redis
       - app
