@@ -24,10 +24,10 @@ def load_all_tickers(database_name: str = "finance"):
     clone_path = "/tmp/tickers"
     shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
-    connection = vaultdb.clone(vaultdb_user, vaultdb_password, database_name, path=clone_path)
+    app = all_tickers_load.Tickers(database_name, path=clone_path)
+    connection = app.clone(vaultdb_user, vaultdb_password)
     connection.execute(f"TRUNCATE DATABASE {database_name};")
-    all_tickers_load.load(connection)
-    connection.execute(f"PUSH DATABASE {database_name};")
+    app.load()
 
 
 @App.task()
@@ -35,7 +35,8 @@ def load_quotes(database_name: str = "finance", period: str = "1d", symbol_prefi
     clone_path = "/tmp/quotes"
     shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
-    connection = vaultdb.clone(vaultdb_user, vaultdb_password, database_name, path=clone_path)
+    app = load_historical_quotes.Quotes(database_name, path=clone_path)
+    connection = app.clone(vaultdb_user, vaultdb_password)
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     if symbol_prefix:
         tickers = connection.execute(
@@ -46,9 +47,7 @@ def load_quotes(database_name: str = "finance", period: str = "1d", symbol_prefi
     connection.execute(f"PRAGMA disable_data_inheritance;")
     for row in tickers.itertuples(index=False):
         try:
-            load_historical_quotes.load(connection, row.symbol, period=period)
-            connection.execute(f"PUSH DATABASE {database_name};")
-            connection.execute(f"TRUNCATE DATABASE {database_name};")
+            app.load(row.symbol, period=period)
         except Exception as ex:
             logger.error(ex)
 
@@ -64,8 +63,6 @@ def load_instrument_details(database_name: str = "finance"):
     for row in tickers.itertuples(index=False):
         try:
             load_instrument.load(connection, row.symbol)
-            connection.execute(f"PUSH DATABASE {database_name};")
-            connection.execute(f"TRUNCATE DATABASE {database_name};")
         except Exception as ex:
             logger.error(ex)
 
@@ -75,14 +72,13 @@ def load_options_and_quotes(database_name: str = "finance", period: str = "1d"):
     clone_path = "/tmp/options"
     shutil.rmtree(clone_path, ignore_errors=True)
     os.makedirs(clone_path)
-    connection = vaultdb.clone(vaultdb_user, vaultdb_password, database_name, path=clone_path)
+    app = load_instrument.InstrumentFinancial(database_name, path=clone_path)
+    connection = app.clone(vaultdb_user, vaultdb_password)
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         try:
             load_instrument.load_options_and_quotes(connection, row.symbol, period=period)
-            connection.execute(f"PUSH DATABASE {database_name};")
-            connection.execute(f"TRUNCATE DATABASE {database_name};")
         except Exception as ex:
             logger.error(ex)
 

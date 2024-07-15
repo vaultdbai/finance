@@ -3,11 +3,15 @@
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "finance",
 	"workspaceFolder": "/workspace",
+
 	// Use this environment variable if you need to bind mount your local source code into a new container.
 	"remoteEnv": {
 		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",		
+		"AWS_DEFAULT_REGION": "${localEnv:AWS_DEFAULT_REGION}",		
+		"AWS_ACCESS_KEY_ID": "${localEnv:AWS_ACCESS_KEY_ID}",
+		"AWS_SECRET_ACCESS_KEY": "${localEnv:AWS_SECRET_ACCESS_KEY}",
 		"commitlog_directory":"/efs",
-		"application_name":"dev"
+		"public_bucket": "test-public-storage-440955376164"
 	},
 	"customizations": {
 		"vscode": {
