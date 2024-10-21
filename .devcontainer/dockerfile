@@ -17,6 +17,9 @@ RUN pip3 install fastapi uvicorn
 RUN pip3 install Redis
 RUN pip3 install ipykernel
 
+ENV TZ=America/New_York
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 ENV PYTHONPATH "${PYTHONPATH}:/workspace/python"
 
 ENTRYPOINT ["/tini", "--"]
