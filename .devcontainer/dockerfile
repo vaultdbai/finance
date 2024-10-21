@@ -11,6 +11,10 @@ RUN mkdir -p ~/.vscode-server-insiders/extensions
 # Install utilitites
 RUN dnf install -y tar gzip git
 
+RUN pip3 install --upgrade pip
+RUN pip3 install celery flower 
+RUN pip3 install fastapi uvicorn
+RUN pip3 install Redis
 RUN pip3 install ipykernel
 
 ENV PYTHONPATH "${PYTHONPATH}:/workspace/python"
