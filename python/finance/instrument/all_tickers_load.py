@@ -1,9 +1,7 @@
 from finance.core import get_tickers as gt
 import pandas as pd
 import duckdb
-from finance.core import VaultDB
-
-# from vaultdb import VaultDB
+from vaultdb import VaultDB
 
 # Set up the logger
 import logging
@@ -31,7 +29,7 @@ class Tickers(VaultDB):
         tickers_df = self.extract()
         tickers_df = self.transform(tickers_df)
 
-        self.sync_load_and_merge(tickers_df, database_name, "tickers", ["exchange", "symbol"], "exchange")
+        self.sync_load_and_merge(tickers_df, "tickers", ["exchange", "symbol"], "exchange")
 
 
 if __name__ == "__main__":

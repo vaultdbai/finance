@@ -2,8 +2,7 @@ import requests_cache
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
-from finance.core import VaultDB
-# from vaultdb import VaultDB
+from vaultdb import VaultDB
 
 # Set up the logger
 import logging
@@ -21,7 +20,7 @@ class InstrumentFinancial(VaultDB):
         super().__init__(database_name, **kwargs)
         self.symbol = symbol
 
-    def extract(self) -> yf.Ticker:
+    def extract(self, symbol: str) -> yf.Ticker:
         session = requests_cache.CachedSession(
             f"{self.database_name}.{self.symbol}.instruments.yfinance.cache",
         )
@@ -61,7 +60,7 @@ class InstrumentFinancial(VaultDB):
         except Exception as ex:
             logger.error(ex)
 
-    def load(self):
+    def load(self, symbol: str):
         ticker = self.extract()
         # show holders
         try:

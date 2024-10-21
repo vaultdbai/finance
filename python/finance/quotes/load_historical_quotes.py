@@ -1,9 +1,7 @@
 import requests_cache
 import yfinance as yf
 import pandas as pd
-from finance.core import VaultDB
-
-# from vaultdb import VaultDB
+from vaultdb import VaultDB
 
 # Set up the logger
 import logging

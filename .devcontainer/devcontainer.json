@@ -11,7 +11,12 @@
 		"AWS_ACCESS_KEY_ID": "${localEnv:AWS_ACCESS_KEY_ID}",
 		"AWS_SECRET_ACCESS_KEY": "${localEnv:AWS_SECRET_ACCESS_KEY}",
 		"commitlog_directory":"/efs",
-		"public_bucket": "test-public-storage-440955376164"
+		"application_name": "test",
+		"public_bucket": "test-public-storage-440955376164",
+		"redis_broker": "redis:6389",
+		"redis_database": "0",
+		"vaultdb_user": "vaultdb",
+		"vaultdb_password": "test123"
 	},
 	"customizations": {
 		"vscode": {

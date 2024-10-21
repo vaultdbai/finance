@@ -21,10 +21,7 @@ WAIT_TIME = 20
 
 @App.task()
 def load_all_tickers(database_name: str = "finance"):
-    clone_path = "/tmp/tickers"
-    shutil.rmtree(clone_path, ignore_errors=True)
-    os.makedirs(clone_path)
-    app = all_tickers_load.Tickers(database_name, path=clone_path)
+    app = all_tickers_load.Tickers(database_name)
     connection = app.clone(vaultdb_user, vaultdb_password)
     connection.execute(f"TRUNCATE DATABASE {database_name};")
     app.load()
@@ -32,10 +29,7 @@ def load_all_tickers(database_name: str = "finance"):
 
 @App.task()
 def load_quotes(database_name: str = "finance", period: str = "1d", symbol_prefix: str = None):
-    clone_path = "/tmp/quotes"
-    shutil.rmtree(clone_path, ignore_errors=True)
-    os.makedirs(clone_path)
-    app = load_historical_quotes.Quotes(database_name, path=clone_path)
+    app = load_historical_quotes.Quotes(database_name)
     connection = app.clone(vaultdb_user, vaultdb_password)
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     if symbol_prefix:
@@ -54,25 +48,20 @@ def load_quotes(database_name: str = "finance", period: str = "1d", symbol_prefi
 
 @App.task()
 def load_instrument_details(database_name: str = "finance"):
-    clone_path = "/tmp/instrument"
-    shutil.rmtree(clone_path, ignore_errors=True)
-    os.makedirs(clone_path)
-    connection = vaultdb.clone(vaultdb_user, vaultdb_password, database_name, path=clone_path)
+    app = load_instrument.InstrumentFinancial(database_name)
+    connection = app.clone(vaultdb_user, vaultdb_password)
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
     for row in tickers.itertuples(index=False):
         try:
-            load_instrument.load(connection, row.symbol)
+            app.load()
         except Exception as ex:
             logger.error(ex)
 
 
 @App.task()
 def load_options_and_quotes(database_name: str = "finance", period: str = "1d"):
-    clone_path = "/tmp/options"
-    shutil.rmtree(clone_path, ignore_errors=True)
-    os.makedirs(clone_path)
-    app = load_instrument.InstrumentFinancial(database_name, path=clone_path)
+    app = load_instrument.InstrumentFinancial(database_name)
     connection = app.clone(vaultdb_user, vaultdb_password)
     connection.execute(f"PRAGMA enable_data_inheritance;;")
     tickers = connection.execute(f"select exchange, symbol from tickers;").fetchdf()
@@ -82,7 +71,7 @@ def load_options_and_quotes(database_name: str = "finance", period: str = "1d"):
         except Exception as ex:
             logger.error(ex)
 
-
+"""
 from vaultdb.compute.schedules import crontab
 
 App.conf.beat_schedule = {
@@ -93,6 +82,7 @@ App.conf.beat_schedule = {
         "args": ("finance", "1d"),
     },
 }
+"""
 
 if __name__ == "__main__":
     load_instrument_details()
